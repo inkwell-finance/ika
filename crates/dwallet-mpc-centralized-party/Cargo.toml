@@ -8,6 +8,7 @@ mpc.workspace = true
 twopc_mpc.workspace = true
 commitment = { git = "https://github.com/dwallet-labs/inkrypto", rev = "abd7f010" }
 web-sys = "0.3.77"
+js-sys = "0.3.77"
 class_groups.workspace = true
 group.workspace = true
 homomorphic_encryption.workspace = true
@@ -19,6 +20,7 @@ rand_core = { version = "0.9", default-features = false }
 rand_chacha = { version = "0.9", default-features = false }
 getrandom = { version = "0.2.16", features = ["js"], optional = true } # TODO: idk why, but we need this, also this is old version
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 tracing-subscriber = "0.3.19"
 tracing = "0.1.41"
 log = "0.4.27"
@@ -30,6 +32,10 @@ wasm_js = ["group/wasm_js", "dep:getrandom"]
 
 [lints]
 workspace = true
+
+[[bin]]
+name = "sign_benchmark"
+path = "src/bin/sign_benchmark.rs"
 
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/ycscaly/crypto-bigint.git", rev = "8aabcee5" }

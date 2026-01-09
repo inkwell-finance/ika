@@ -4,10 +4,26 @@ edition = "2024"
 license = "BSD-3-Clause-Clear"
 authors = ["dWallet Labs, Ltd. <dev@dwalletlabs.com>"]
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+published-at = "0x702025368b4c04362b56d3de6a9f3e2fd142729bf6755cd4ae73ec2de46261b6"
 [dependencies]
 
 [addresses]
-ika = "0x0"
+ika = "0x702025368b4c04362b56d3de6a9f3e2fd142729bf6755cd4ae73ec2de46261b6"
 
 [dev-dependencies]
 

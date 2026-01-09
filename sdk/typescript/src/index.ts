@@ -12,6 +12,7 @@ export * as systemTransactions from './tx/system.js';
 export * from './client/cryptography.js';
 export * from './client/ika-client.js';
 export * from './client/ika-transaction.js';
+export * from './client/native-signing-client.js';
 export * from './client/network-configs.js';
 export * from './client/types.js';
 export * from './client/user-share-encryption-keys.js';

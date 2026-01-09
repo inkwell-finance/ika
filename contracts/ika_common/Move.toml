@@ -4,11 +4,27 @@ edition = "2024"
 license = "BSD-3-Clause-Clear"
 authors = ["dWallet Labs, Ltd. <dev@dwalletlabs.com>"]
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+published-at = "0x7205527e35000ea9c615042da2708d470a14d09c4861c66f8cd1218e1bb1d93d"
 [dependencies]
 ika = { local = "../ika" }
 
 [addresses]
-ika_common = "0x0"
+ika_common = "0x7205527e35000ea9c615042da2708d470a14d09c4861c66f8cd1218e1bb1d93d"
 
 [dev-dependencies]
 

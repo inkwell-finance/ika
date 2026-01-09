@@ -805,15 +805,22 @@ export class IkaClient {
 	 * @throws {NetworkError} If the network request fails
 	 */
 	async getProtocolPublicParameters(dWallet?: DWallet, curve?: Curve): Promise<Uint8Array> {
+		const t0 = Date.now();
+
+		const t1 = Date.now();
 		await this.#fetchEncryptionKeysFromNetwork();
+		console.log(`[IkaClient] fetchEncryptionKeysFromNetwork: ${Date.now() - t1}ms`);
 
 		let networkEncryptionKey: NetworkEncryptionKey;
 
+		const t2 = Date.now();
 		if (dWallet) {
 			networkEncryptionKey = await this.getDWalletNetworkEncryptionKey(dWallet.id.id);
+			console.log(`[IkaClient] getDWalletNetworkEncryptionKey: ${Date.now() - t2}ms`);
 		} else {
 			// Use client's configured encryption key options
 			networkEncryptionKey = await this.getConfiguredNetworkEncryptionKey();
+			console.log(`[IkaClient] getConfiguredNetworkEncryptionKey: ${Date.now() - t2}ms`);
 		}
 
 		const encryptionKeyID = networkEncryptionKey.id;
@@ -837,20 +844,33 @@ export class IkaClient {
 				cachedParams.epoch === epoch &&
 				cachedParams.curve === selectedCurve
 			) {
+				console.log(`[IkaClient] getProtocolPublicParameters: ${Date.now() - t0}ms (cached, size=${cachedParams.protocolPublicParameters.length})`);
 				return cachedParams.protocolPublicParameters;
 			}
 		}
 
-		const protocolPublicParameters = !networkEncryptionKey.reconfigurationOutputID
-			? await networkDkgPublicOutputToProtocolPublicParameters(
-					selectedCurve,
-					await this.readTableVecAsRawBytes(networkEncryptionKeyPublicOutputID),
-				)
-			: await reconfigurationPublicOutputToProtocolPublicParameters(
-					selectedCurve,
-					await this.readTableVecAsRawBytes(networkEncryptionKey.reconfigurationOutputID),
-					await this.readTableVecAsRawBytes(networkEncryptionKeyPublicOutputID),
-				);
+		const t3 = Date.now();
+		let protocolPublicParameters: Uint8Array;
+		if (!networkEncryptionKey.reconfigurationOutputID) {
+			const rawBytes = await this.readTableVecAsRawBytes(networkEncryptionKeyPublicOutputID);
+			console.log(`[IkaClient] Raw DKG output size: ${rawBytes.length} bytes`);
+			protocolPublicParameters = await networkDkgPublicOutputToProtocolPublicParameters(
+				selectedCurve,
+				rawBytes,
+			);
+			console.log(`[IkaClient] Transformed protocolPP size: ${protocolPublicParameters.length} bytes`);
+		} else {
+			const reconfigBytes = await this.readTableVecAsRawBytes(networkEncryptionKey.reconfigurationOutputID);
+			const dkgBytes = await this.readTableVecAsRawBytes(networkEncryptionKeyPublicOutputID);
+			console.log(`[IkaClient] Raw reconfig size: ${reconfigBytes.length}, DKG size: ${dkgBytes.length} bytes`);
+			protocolPublicParameters = await reconfigurationPublicOutputToProtocolPublicParameters(
+				selectedCurve,
+				reconfigBytes,
+				dkgBytes,
+			);
+			console.log(`[IkaClient] Transformed protocolPP size: ${protocolPublicParameters.length} bytes`);
+		}
+		console.log(`[IkaClient] readTableVec + WASM transform: ${Date.now() - t3}ms`);
 
 		// Cache the parameters by encryption key ID and curve
 		this.cachedProtocolPublicParameters.set(cacheKey, {
@@ -860,6 +880,7 @@ export class IkaClient {
 			protocolPublicParameters,
 		});
 
+		console.log(`[IkaClient] getProtocolPublicParameters total: ${Date.now() - t0}ms`);
 		return protocolPublicParameters;
 	}
 
@@ -1054,19 +1075,27 @@ export class IkaClient {
 	 * @private
 	 */
 	async #fetchEncryptionKeysFromNetwork(): Promise<NetworkEncryptionKey[]> {
+		const t0 = Date.now();
 		try {
+			const t1 = Date.now();
 			const objects = await this.ensureInitialized();
+			console.log(`[IkaClient] ensureInitialized: ${Date.now() - t1}ms`);
+
+			const t2 = Date.now();
 			const keysDFs = await this.client.getDynamicFields({
 				parentId: objects.coordinatorInner.dwallet_network_encryption_keys.id.id,
 			});
+			console.log(`[IkaClient] getDynamicFields (encryption keys): ${Date.now() - t2}ms`);
 
 			if (!keysDFs.data?.length) {
 				throw new ObjectNotFoundError('Network encryption keys');
 			}
 
 			const encryptionKeys: NetworkEncryptionKey[] = [];
+			console.log(`[IkaClient] Processing ${keysDFs.data.length} encryption keys...`);
 
 			for (const keyDF of keysDFs.data) {
+				const tKey = Date.now();
 				const keyName = keyDF.name.value as string;
 				const keyObject = await this.client.getObject({
 					id: keyDF.objectId,
@@ -1081,6 +1110,7 @@ export class IkaClient {
 					this.client,
 					keyParsed.reconfiguration_public_outputs.id.id,
 				);
+				console.log(`[IkaClient] Key ${keyName}: getObject + fetchDynamicFields: ${Date.now() - tKey}ms (${reconfigOutputsDFs.length} reconfig outputs)`);
 
 				const lastReconfigOutput = (
 					await Promise.all(
@@ -1118,6 +1148,7 @@ export class IkaClient {
 			// Sort by epoch to ensure proper ordering
 			encryptionKeys.sort((a, b) => a.epoch - b.epoch);
 
+			console.log(`[IkaClient] #fetchEncryptionKeysFromNetwork total: ${Date.now() - t0}ms`);
 			return encryptionKeys;
 		} catch (error) {
 			if (error instanceof InvalidObjectError || error instanceof ObjectNotFoundError) {

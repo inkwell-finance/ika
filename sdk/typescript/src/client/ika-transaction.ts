@@ -2001,12 +2001,15 @@ export class IkaTransaction {
 		userSignatureInputs: UserSignatureInputs;
 		signDuringDKG?: boolean;
 	}): Promise<Uint8Array> {
+		const t0 = Date.now();
 		this.#assertPresignCompleted(userSignatureInputs.presign);
 
+		const t1 = Date.now();
 		const publicParameters = await this.#ikaClient.getProtocolPublicParameters(
 			userSignatureInputs.activeDWallet,
 			userSignatureInputs.curve,
 		);
+		console.log(`[IkaTransaction] getProtocolPublicParameters: ${Date.now() - t1}ms`);
 
 		let secretShare, publicOutput;
 
@@ -2023,7 +2026,9 @@ export class IkaTransaction {
 				publicOutput = Uint8Array.from(
 					userSignatureInputs.activeDWallet.state.Active?.public_output,
 				);
+				console.log(`[IkaTransaction] Using public user share (fast path)`);
 			} else {
+				const t2 = Date.now();
 				const userSecretKeyShareResponse = await this.#getUserSecretKeyShare({
 					secretShare: userSignatureInputs.secretShare,
 					encryptedUserSecretKeyShare: userSignatureInputs.encryptedUserSecretKeyShare,
@@ -2031,6 +2036,7 @@ export class IkaTransaction {
 					publicParameters,
 					publicOutput: userSignatureInputs.publicOutput,
 				});
+				console.log(`[IkaTransaction] getUserSecretKeyShare: ${Date.now() - t2}ms`);
 
 				secretShare = userSecretKeyShareResponse.secretShare;
 				publicOutput = userSecretKeyShareResponse.verifiedPublicOutput;
@@ -2052,16 +2058,19 @@ export class IkaTransaction {
 					);
 				}
 
+				const t3 = Date.now();
 				await this.#verifySecretShare({
 					curve: userSignatureInputs.curve,
 					verifiedPublicOutput: publicOutput,
 					secretShare,
 					publicParameters: publicParameters,
 				});
+				console.log(`[IkaTransaction] verifySecretShare: ${Date.now() - t3}ms`);
 			}
 		}
 
-		return this.#createUserSignMessageWithPublicOutput({
+		const t4 = Date.now();
+		const result = await this.#createUserSignMessageWithPublicOutput({
 			protocolPublicParameters: publicParameters,
 			publicOutput,
 			userSecretKeyShare: secretShare,
@@ -2072,6 +2081,10 @@ export class IkaTransaction {
 			curve: userSignatureInputs.curve,
 			createWithCentralizedOutput: userSignatureInputs.createWithCentralizedOutput,
 		});
+		console.log(`[IkaTransaction] createUserSignMessage WASM: ${Date.now() - t4}ms`);
+		console.log(`[IkaTransaction] #getUserSignMessage total: ${Date.now() - t0}ms`);
+
+		return result;
 	}
 
 	async #requestSign({

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 import type * as WasmModule from '@ika.xyz/ika-wasm';
+import { callNativeSigningService, isNativeSigningEnabled } from './native-signing-client.js';
 
 let wasmModule: typeof WasmModule | null = null;
 let initPromise: Promise<void> | null = null;
@@ -100,8 +101,36 @@ export async function create_sign_centralized_party_message(
 	signatureScheme: number,
 	curve: number,
 ): Promise<Uint8Array> {
+	// Try native signing service first if configured (~4x faster)
+	// Server fetches protocol_pp from chain, no need to send it (saves 44MB transfer)
+	if (isNativeSigningEnabled()) {
+		try {
+			const result = await callNativeSigningService({
+				// Don't send protocolPublicParameters - server fetches from chain
+				publicOutput,
+				userSecretKeyShare,
+				presign,
+				message,
+				hash,
+				signatureScheme,
+				curve,
+			});
+			if (result) {
+				return result.signature;
+			}
+		} catch (error) {
+			console.warn('[WASM] Native signing failed, falling back to WASM:', error);
+		}
+	}
+
+	// Fallback to WASM
+	const t0 = Date.now();
 	const wasm = await getWasmModule();
-	return wasm.create_sign_centralized_party_message(
+	console.log(`[WASM] getWasmModule: ${Date.now() - t0}ms`);
+	console.log(`[WASM] Input sizes: protocolPP=${protocolPublicParameters.length}, publicOut=${publicOutput.length}, secretShare=${userSecretKeyShare.length}, presign=${presign.length}, message=${message.length}`);
+
+	const t1 = Date.now();
+	const result = wasm.create_sign_centralized_party_message(
 		protocolPublicParameters,
 		publicOutput,
 		userSecretKeyShare,
@@ -111,6 +140,8 @@ export async function create_sign_centralized_party_message(
 		signatureScheme,
 		hash,
 	);
+	console.log(`[WASM] create_sign_centralized_party_message: ${Date.now() - t1}ms`);
+	return result;
 }
 
 export async function create_sign_centralized_party_message_with_centralized_party_dkg_output(
@@ -141,7 +172,10 @@ export async function network_dkg_public_output_to_protocol_pp(
 	networkDkgPublicOutput: Uint8Array,
 ): Promise<Uint8Array> {
 	const wasm = await getWasmModule();
-	return wasm.network_dkg_public_output_to_protocol_pp(curve, networkDkgPublicOutput);
+	console.log(`[WASM] network_dkg_public_output_to_protocol_pp input: ${networkDkgPublicOutput.length} bytes`);
+	const result = wasm.network_dkg_public_output_to_protocol_pp(curve, networkDkgPublicOutput);
+	console.log(`[WASM] network_dkg_public_output_to_protocol_pp output: ${result.length} bytes (${(result.length / networkDkgPublicOutput.length).toFixed(1)}x expansion)`);
+	return result;
 }
 
 export async function verify_secp_signature(
