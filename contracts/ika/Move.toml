@@ -13,20 +13,13 @@ authors = ["dWallet Labs, Ltd. <dev@dwalletlabs.com>"]
 
 
 
-
-
-
-
-
-
-published-at = "0x702025368b4c04362b56d3de6a9f3e2fd142729bf6755cd4ae73ec2de46261b6"
+published-at = "0xa17d7ffa40ed4902e7fbdbc37b5706368705d0e03700166077f6c0845a1f894a"
 [dependencies]
 
 [addresses]
-ika = "0x702025368b4c04362b56d3de6a9f3e2fd142729bf6755cd4ae73ec2de46261b6"
+ika = "0xa17d7ffa40ed4902e7fbdbc37b5706368705d0e03700166077f6c0845a1f894a"
 
 [dev-dependencies]
 
 [dev-addresses]
-
 
